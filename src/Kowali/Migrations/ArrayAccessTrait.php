@@ -96,6 +96,25 @@ trait ArrayAccessTrait {
 
     }
 
+    /**
+     * Provides default values for the object attributes
+     *
+     * @param  array   $default
+     * @param  boolean $strict
+     * @return ArrayAccessTrait
+     */
+    public function withDefault(array $default, $strict = false)
+    {
+        $this->attributes = array_merge($default, $this->attributes);
+
+        if($strict)
+        {
+            $this->attributes = array_intersect_key($this->attributes, $default);
+        }
+
+        return $this;
+    }
+
     public function only($keys = [])
     {
         $keys = is_array($keys) ? $keys : func_get_args();

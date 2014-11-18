@@ -27,11 +27,16 @@ class NodeSeeder implements \ArrayAccess {
      * @param  string  $folder
      * @return void
      */
-    public function __construct($folder)
+    public function __construct($folder, array $default = [], $strict = false)
     {
         $this->folder = $folder;
 
         $this->attributes = (array)$this->getConfiguration($folder);
+
+        if( ! empty($default))
+        {
+            $this->withDefault($default, $strict);
+        }
 
         $this->translations = $this->makeTranslations($folder);
     }
