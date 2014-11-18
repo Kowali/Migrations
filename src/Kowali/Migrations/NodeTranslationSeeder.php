@@ -1,4 +1,4 @@
-<?php namespace Mithra\Needle\Migrations;
+<?php namespace Kowali\Migrations;
 
 use Symfony\Component\Yaml\Yaml;
 

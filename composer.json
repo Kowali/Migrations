@@ -8,14 +8,15 @@
             "email": "thomas@hupkens.be"
         }
     ],
+    "require": {
+        "php": ">=5.4.0",
+        "illuminate/support": "4.2.*",
+        "hpkns/front-matter": "1.0.4"
+    },
     "autoload": {
         "psr-4": {
-            "Kowali\\Migrations\\" : 'src/Kowali/Migrations/'
+            "Kowali\\Migrations\\" : "src/Kowali/Migrations/"
         }
-    },
-    "require": {
-        "illuminate/support": "4.2.*",
-        "php": ">=5.4.0"
     },
     "minimum-stability": "stable"
 }
