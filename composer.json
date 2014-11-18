@@ -1,0 +1,21 @@
+{
+    "name": "kowali/migrations",
+    "description": "The utility class to create migrations and apply theme to Eloquent schemas",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Thomas Hupkens",
+            "email": "thomas@hupkens.be"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Kowali\\Migrations\\" : 'src/Kowali/Migrations/'
+        }
+    },
+    "require": {
+        "illuminate/support": "4.2.*",
+        "php": ">=5.4.0"
+    },
+    "minimum-stability": "stable"
+}
