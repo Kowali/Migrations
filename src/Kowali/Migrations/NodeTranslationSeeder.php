@@ -16,7 +16,7 @@ class NodeTranslationSeeder implements \ArrayAccess {
     /**
      * @var string
      */
-    protected $fileName;
+    protected $path;
 
     /**
      * Initialize the instance
@@ -25,54 +25,14 @@ class NodeTranslationSeeder implements \ArrayAccess {
      * @param  \Hpkns\FrontMatter\Parser $frontMatter
      * @return void
      */
-    public function __construct($file = null, FrontMatter $frontMatter = null)
+    public function __construct(array $default = [], $strict = false, FrontMatter $frontMatter = null)
     {
         $this->frontMatter = $frontMatter ?: \App::make('front-matter');
 
-        if( ! is_null($file))
+        if( ! empty($default))
         {
-            $this->createFromFile($file);
-            $this->setFileName($file);
+            $this->withDefault($default, $strict);
         }
-    }
-
-    /**
-     * Set the filename
-     *
-     * @param  string $file_name
-     * @return void
-     */
-    public function setFileName($file_name)
-    {
-        $this->fileName = $file_name;
-    }
-
-    /**
-     * Return the filename
-     *
-     * @return string
-     */
-    public function getFileName()
-    {
-        if($this->fileName)
-        {
-            return $this->fileName;
-        }
-
-        throw new \Exception("No path provided to save the translation");
-    }
-
-    /**
-     * Save the seeder
-     *
-     * @param  string $path
-     * @return void
-     */
-    public function save($filepath = null)
-    {
-        $file = $filepath ?: $this->getFileName();
-
-        file_put_contents($file, (string)$this);
     }
 
     /**
@@ -81,12 +41,33 @@ class NodeTranslationSeeder implements \ArrayAccess {
      * @param  string $file
      * @return void
      */
-    public function createFromFile($file)
+    public function fromFile($path)
     {
-       $locale = pathinfo($file, PATHINFO_FILENAME);
-       $mime = $this->getMimeType($file);
+        $this->path = $path;
+        $locale = pathinfo($path, PATHINFO_FILENAME);
+        $mime = $this->getMimeType($path);
 
-       $this->createFromSring(file_get_contents($file), $locale, $mime);
+        $this->createFromSring(file_get_contents($path), $locale, $mime);
+
+        return $this;
+    }
+
+    /**
+     * Save the seeder
+     *
+     * @param  string $path
+     * @return void
+     */
+    public function save($path = null)
+    {
+        if($path)
+        {
+            $this->path = $path;
+        }
+
+        if( ! $this->path) throw new \Exception("No path provided");
+
+        file_put_contents($path, (string)$this);
     }
 
     /**
