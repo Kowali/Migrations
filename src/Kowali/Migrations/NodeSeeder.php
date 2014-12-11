@@ -58,7 +58,7 @@ class NodeSeeder implements \ArrayAccess {
             throw new \Exception("Folder {$folder} not found");
         }
 
-        if($configuration = $this->getConfiguration($folder))
+        if(($configuration = $this->getConfiguration($folder)) !== false)
         {
             $this->withDefault((array)$configuration);
         }
@@ -103,6 +103,8 @@ class NodeSeeder implements \ArrayAccess {
                 return Yaml::parse($content);
             }
         }
+        
+        return false;
     }
 
     /**
