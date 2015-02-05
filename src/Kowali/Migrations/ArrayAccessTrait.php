@@ -105,7 +105,7 @@ trait ArrayAccessTrait {
      */
     public function withDefault(array $default, $strict = false)
     {
-        $this->attributes = array_merge($default, $this->attributes);
+        $this->attributes = array_merge($this->attributes, $default);
 
         if($strict)
         {
