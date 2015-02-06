@@ -103,7 +103,7 @@ class NodeSeeder implements \ArrayAccess {
                 return Yaml::parse($content);
             }
         }
-        
+
         return false;
     }
 
@@ -118,7 +118,7 @@ class NodeSeeder implements \ArrayAccess {
         $translations = [];
         foreach(glob("{$folder}/*") as $file)
         {
-            if(strpos(basename($file), $this->configFileName) === 0)
+            if(strpos(basename($file), $this->configFileName) === 0 || is_dir($file))
             {
                 continue;
             }
