@@ -36,9 +36,6 @@ class MigrationsServiceProvider extends ServiceProvider {
             return new Commands\ContentsTaxonomiesCommand;
         });
 
-        $this->app->bindShared('kowali.filter', function($app){
-            return new Filtering\FilterRepository;
-        });
     }
 
     /**
@@ -48,7 +45,7 @@ class MigrationsServiceProvider extends ServiceProvider {
      */
     public function provides()
     {
-        return [];
+        return ['kowali.commands.contents-migrate', 'kowali.commands.contents-taxonomies'];
     }
 }
 
