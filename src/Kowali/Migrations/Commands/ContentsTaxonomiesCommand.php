@@ -1,4 +1,4 @@
-<?php namespace Kowali\Contents\Commands;
+<?php namespace Kowali\Migrations\Commands;
 
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;

@@ -1,4 +1,4 @@
-<?php namespace Kowali\Contents\Migration;
+<?php namespace Kowali\Migrations;
 
 use Kowali\Migrations\NodeSeeder;
 

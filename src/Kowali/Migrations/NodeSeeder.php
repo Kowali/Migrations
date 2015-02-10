@@ -35,12 +35,14 @@ class NodeSeeder implements \ArrayAccess {
      * @param  string  $folder
      * @return void
      */
-    public function __construct(array $default = [])
+    public function __construct(array $default = [], array $translations_default = [])
     {
         if( ! empty($default))
         {
             $this->withDefault($default);
         }
+
+        $this->translationsDefault = $translations_default;
     }
 
     /**
@@ -70,6 +72,17 @@ class NodeSeeder implements \ArrayAccess {
         }
 
         return $this;
+    }
+
+
+    /**
+     * Return the forlder containing the seeder.
+     *
+     * @return string
+     */
+    public function getFolder()
+    {
+        return $this->folder;
     }
 
     /**
@@ -123,7 +136,7 @@ class NodeSeeder implements \ArrayAccess {
                 continue;
             }
 
-            $translations[] = ( new NodeTranslationSeeder() )->fromFile($file);
+            $translations[] = ( new NodeTranslationSeeder($this->translationsDefault) )->fromFile($file);
         }
         return $translations;
     }

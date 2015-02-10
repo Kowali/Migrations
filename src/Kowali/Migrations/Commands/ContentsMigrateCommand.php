@@ -1,18 +1,13 @@
-<?php namespace Kowali\Contents\Commands;
+<?php namespace Kowali\Migrations\Commands;
 
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Yaml\Parser;
 
-use Kowali\Contents\Models\Taxonomy;
-use Kowali\Contents\Models\TaxonomyTranslation;
-use Kowali\Contents\Models\Term;
-use Kowali\Contents\Models\TermTranslation;
-use Kowali\Contents\Models\Content;
+use \File;
 
-use Kowali\Contents\Migration\ContentMigration;
-use Kowali\Migrations\NodeSeeder;
+use Kowali\Migrations\ContentMigrationContract;
 
 class ContentsMigrateCommand extends Command {
 
@@ -31,35 +26,28 @@ class ContentsMigrateCommand extends Command {
     protected $description = 'Migrates multiple contents in one command.';
 
     /**
-     * A list of contents that have not found their parent yet.
      *
+     * @var Kowali\Migrations\ContentMigrationContract;
+     */
+    protected $migration;
+
+    /**
+     * A list of contents that where not successfully migrated in the first pass.
+     *
+     * @see ContentsMigrateCommand::retry()
      * @var array
      */
-    protected $orphans = [];
+    protected $errors = [];
 
     /**
      * Create a new command instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(ContentMigrationContract $migration = null)
     {
         parent::__construct();
-    }
-
-    /**
-     * Execute the console command.
-     *
-     * @return mixed
-     */
-    public function fire()
-    {
-        \Eloquent::unguard();
-
-        $path = $this->getPath();
-
-        $this->exploreFolder($path);
-        $this->resolveDependencyErrors();
+        $this->migration = $migration ?: \App::make('Kowali\Migrations\ContentMigrationContract');
     }
 
     /**
@@ -77,83 +65,83 @@ class ContentsMigrateCommand extends Command {
     }
 
     /**
-     * Recursively explore a folder until something usefull is found.
+     * Execute the console command.
      *
-     * @param  string $path
-     * @return void
+     * @return mixed
      */
-    public function exploreFolder($path)
+    public function fire()
     {
-        $content = array_filter(scandir($path), function($e){
-            return ! in_array($e, ['.', '..']);
-        });
+        $path = $this->getPath();
 
-        if(in_array('conf.yml', $content))
+        foreach($this->migration->getContentModels() as $type => $model)
         {
-            $this->migrateFolder($path);
+            if(file_exists("{$path}/{$type}"))
+            $this->migrateContentType($type, $model, "{$path}/{$type}");
         }
 
-        foreach($content as $file)
-        {
-            $filepath = "{$path}/{$file}";
+        $this->retry();
+    }
 
-            if(is_dir($filepath)){
-                $this->exploreFolder($filepath);
-            }
+    /**
+     * Migrate a folder according to a type of file.
+     *
+     * @param  string $type
+     * @param  string $model
+     * @param  string $folder
+     * @return void
+     */
+    public function migrateContentType($type, $model, $path)
+    {
+        foreach(File::directories($path) as $folder)
+        {
+            $this->migrateContent($type, $model, $folder);
         }
     }
 
     /**
-     * Migrate a folder.
+     * Migrate a content.
      *
-     * @param  string $path
+     * @param  string $type
+     * @param  string $model
+     * @param  string $folder
      * @return void
      */
-    public function migrateFolder($path)
+    public function migrateContent($type, $model, $path)
     {
-        $seeder = (new NodeSeeder([
-            'order'   => 0,
-            'user_id' => 1,
-            'status'  => 'published',
-            'content_model' => "Kowali\Contents\Models\Content",
-        ]))->fromFolder($path);
-
-        $migration = new ContentMigration($seeder);
-        $this->info("Migrating {$migration->getTitle()}");
-        $this->migrateMigration($migration);
-    }
-
-    public function migrateMigration($migration)
-    {
-        try
+        if($this->migration->migrateContentType($type, $model, $path) !== false)
         {
-            $migration->migrate();
+            $this->info("Migrated content {$path}");
         }
-        catch(\Kowali\Contents\Migration\Exceptions\DependenceNotFoundException $e)
+        else
         {
-            $this->error("Could not migrate {$migration->getTitle()}. Will retry later");
-            $this->orphans[] = $migration;
+            $this->errors[] = [$type, $model, $path];
+            $this->error("Could not migrate {$path}. Will try later");
         }
     }
 
     /**
-     * Matches contents with their parents.
+     * Try to migrate remaining contents.
      *
      * @return void
      */
-    public function resolveDependencyErrors()
+    public function retry()
     {
         $i = 0;
-        while(count($this->orphans))
+        while($content = array_shift($this->errors))
         {
-            $orphan = array_shift($this->orphans);
-
-            $this->info("Retying to migrate {$orphan->getTitle()}");
-            $this->migrateMigration($orphan);
-
-            if($i++ > 1000)
+            if($this->migration->migrateContentType($content[0], $content[1], $content[2]) !== false)
             {
-                throw new \Exception('Maximum number of tries for conflict resolution reached. Abborting');
+                $this->info("Migrated content {$content[2]}");
+            }
+            else
+            {
+                $this->errors[] = $content;
+                $this->error("Could not migrate {$content[2]}. Will try later");
+            }
+
+            if($i++ >= 1000)
+            {
+                throw new \Exception('Too many rounds. Aborting');
             }
         }
     }
@@ -179,5 +167,4 @@ class ContentsMigrateCommand extends Command {
             ['path', null, InputOption::VALUE_OPTIONAL, 'The folder that contains the contents to migrate.', "app/contents"],
         );
     }
-
-    }
+}

@@ -1,124 +1,266 @@
-<?php namespace Kowali\Contents\Migration;
+<?php namespace Kowali\Migrations;
 
+use Kowali\Contents\ContentRepository;
+use Kowali\Contents\Models\Content;
 use Kowali\Contents\Models\Taxonomy;
 use Kowali\Contents\Models\Term;
-use Kowali\Contents\Models\Content;
+use Kowali\Contents\Models\Meta;
 
-class ContentMigration extends Migration {
+class ContentMigration implements ContentMigrationContract {
 
-    protected $keys = ['tid', 'user_id', 'content_id', 'order', '_content', 'content_model', 'status', 'created_at', 'updated_at', 'deleted_at'];
-    protected $translation_keys= ['content_id', 'locale', 'slug', 'title', 'content', 'excerpt', 'mime_type', 'created_at', 'updated_at'];
+    /**
+     * @var \Kowali\Contents\ContentRepository
+     */
+    protected $content;
 
-    public function migrate()
+    /**
+     * A list of contents to be migrated.
+     *
+     * @var array
+     */
+    protected $contentModels = [];
+
+    /**
+     * The model to use to represent users.
+     *
+     * @var string
+     */
+    protected $userModel = 'User';
+
+    /**
+     * Key used to find users.
+     *
+     * @var string
+     */
+    protected $userIdentifyingKey = 'email';
+
+    /**
+     * The key to the default user.
+     *
+     * @var string
+     */
+    protected $defaultUserId = 'nobody@dns.com';
+
+    /**
+     * A list of user with their id to help speed lookup.
+     *
+     * @var array
+     */
+    protected $userCache = [];
+
+    /**
+     * Default values for the content seeder.
+     *
+     * @var array
+     */
+    protected $seederDefaultValues = [
+        'order'         => 1,
+        'status'        => 'published'
+    ];
+
+    /**
+     * Default values for the content seeder translations.
+     *
+     * @var array
+     */
+    protected $seederTranslationDefaultValues = [];
+
+    /**
+     * The fields used to migrate contents.
+     *
+     * @var array
+     */
+    protected $contentFields = ['tid', 'user_id', 'content_id', 'order', '_content', 'content_model', 'status', 'created_at', 'updated_at', 'deleted_at'];
+
+    /**
+     * The fields used to migrate content translations.
+     *
+     * @var array
+     */
+    protected $contentTranslationFields = ['content_id', 'locale', 'slug', 'title', 'content', 'excerpt', 'mime_type', 'created_at', 'updated_at'];
+
+    /**
+     * Initialize the instance.
+     *
+     * @param  \Kowali\Contents\ContentRepository
+     * @return void
+     */
+    public function __construct(ContentRepository $content)
     {
-        if($this->seeder->parent)
-        {
-            $parent = $this->getContent($this->seeder->parent);
-
-            if($parent === null)
-            {
-                throw new Exceptions\DependenceNotFoundException;
-            }
-            $this->seeder->content_id = $parent->id;
-        }
-
-        $seed_data = $this->seeder->only($this->keys);
-
-        if($content = $this->getContent($this->seeder->tid))
-        {
-            $content->update($seed_data);
-        }
-        else
-        {
-            $content = $this->getContentModel()->create($seed_data);
-        }
-
-        if($this->seeder->terms)
-        {
-            foreach($this->seeder->terms as $taxonomy => $term)
-            {
-                $this->migrateTerm($content, $taxonomy, $term);
-            }
-        }
-
-        $this->migrateTranslations($this->seeder, $content);
+        $this->content = $content;
     }
 
-    public function getTitle()
+    /**
+     * Get a list of content model and the name of the folder where they are located.
+     *
+     * @return string
+     */
+    public function getContentModels()
     {
-        return $this->seeder->getTranslations()[0]->title;
+        return $this->contentModels;
     }
 
-    public function migrateTerm($content, $taxonomy, $term)
+    /**
+     * @return string
+     */
+    public function getSeederDefaultValues()
     {
-        $term = $this->getTaxonomyTerm($taxonomy, $term);
-        if($term && ! $content->terms->contains($term))
+        return $this->seederDefaultValues;
+    }
+
+    /**
+     *
+     * @return string
+     */
+    public function getSeederTranslationDefaultValues()
+    {
+        return $this->seederTranslationDefaultValues;
+    }
+
+    /**
+     * Migrate a content type.
+     *
+     * @param  string $path
+     * @param  string $model
+     * @return bool
+     */
+    public function migrateContentType($type, $model, $path)
+    {
+        $seed = (new NodeSeeder($this->getSeederDefaultValues(), $this->getSeederTranslationDefaultValues()))
+            ->fromFolder($path);
+
+        if( ! $seed->tid)
         {
-
-            $content->terms()->attach($term);
+            $seed->tid = \Str::slug(basename($path));
         }
-    }
+        if(true ||  ! $seed->content_model)
+        {
+            $seed->content_model = $model;
+        }
 
-    protected $taxonomies = [];
-    public function getTaxonomyTerm($taxonomy, $term)
-    {
-        return Term::whereSlug($term)->where('taxonomy_id', function($q) use ($taxonomy){
-            $q->select('id')->from('taxonomies')->where('slug', '=', $taxonomy);
-        })->first();
-    }
+        if( ! $seed->user_id)
+        {
+            $seed->user_id = $this->getUserId($seed->user, $this->userIdentifyingKey);
+        }
 
-    public function migrateTranslations($seeder, $content)
-    {
-        foreach($seeder->getTranslations() as $translation)
+        if($seed->parent && ! $seed->content_id)
+        {
+            $seed->content_id = $this->content->getByTid($seed->parent)->id;
+        }
+
+        $content = $this->content->updateOrCreate($seed->only($this->contentFields));
+
+        foreach($seed->getTranslations() as $translation)
         {
             $this->migrateTranslation($translation, $content);
         }
 
-        $translated_langs = array_map(function($e){ return $e->lang ; }, $seeder->getTranslations());
-
-        $this->deleteObsoleteTranslations($content, $translated_langs);
-    }
-
-    public function migrateTranslation($seeder, $content)
-    {
-        $seeder->content_id = $content->id;
-        $seeder->locale = $seeder->lang;
-        $seeder->slug = $seeder->slug ?: \Str::slug($seeder->title);
-
-        $translation_data = $seeder->only($this->translation_keys);
-
-        if($translation = $content->getTranslation($seeder->lang, false))
+        if($seed->terms)
         {
-            $translation->update($translation_data);
-        }
-        else
-        {
-            $model = $this->getContentModel()->getTranslationModelName();
-            (new $model)->create($translation_data);
-        }
-
-    }
-
-    public function deleteObsoleteTranslations($content, $langs)
-    {
-        foreach($content->translations as $translation)
-        {
-            if( ! in_array($translation->locale, $langs))
+            foreach($seed->terms as $taxonomy => $term)
             {
-                $t->delete();
+                $this->addTerm($taxonomy, $term, $content);
+            }
+        }
+
+        if($seed->metas)
+        {
+            foreach($seed->metas as $name => $details){
+                $this->addMeta($name, $details, $content);
             }
         }
     }
 
-    public function getContent($tid)
+    public function migrateTranslation($seed, $content)
     {
-        return Content::where('tid', '=', $tid)
-            ->first();
+        $seed->content_id = $content->id;
+        $seed->slug = \Str::slug($seed->title);
+        $data = $seed->only($this->contentTranslationFields);
+
+        if($translation = $this->content->getTranslation($content, $seed->locale))
+        {
+            $translation->update($data);
+        }
+        else
+        {
+            $model = $content->getTranslationModelName();
+            (new $model)->create($data);
+        }
     }
 
-    public function getContentModel()
+    /**
+     *
+     * @param  string                          $taxonomy
+     * @param  string                          $term
+     * @param  \Kowali\Contents\Models\Content $content
+     * @return void
+     */
+    public function addTerm($taxonomy, $term, $content)
     {
-        $model = $this->seeder->content_model;
-        return new $model;
+        if(is_array($term))
+        {
+            foreach($term as $t)
+            {
+                $this->addTerm($taxonomy, $t, $content);
+            }
+            return;
+        }
+
+        $this->content->addTerm($content, $taxonomy, $term);
     }
+
+    /**
+     * @param  string                          $name
+     * @param  string                          $details
+     * @param  \Kowali\Contents\Models\Content $content
+     * @return void
+     */
+    public function addMeta($name, $meta, $content)
+    {
+        $keys = [
+            'lang'          => $meta['lang'],
+            'value'         => $meta['content'],
+            'key'           => $name,
+            'metaable_type' => $content->content_model,
+            'metaable_id'   => $content->id,
+        ];
+
+        Meta::updateOrCreate(array_only($keys, ['lang', 'key', 'metaable_type', 'metaable_id']), $keys);
+    }
+
+    /**
+     * Return a user numeric id based on the textual id.
+     *
+     * @param  mixed $id
+     * @param  mixed $key
+     * @return string
+     */
+    public function getUserId($id = null, $key = 'email')
+    {
+        $id = $id ?: $this->defaultUserId;
+
+        if( ! array_key_exists($id, $this->userCache))
+        {
+            $model = $this->userModel;
+            $user = (new $model)->newQuery()->where($key, '=', $id)->first();
+            if( ! $user)
+            {
+                throw new \Exception("User {$id} not found");
+            }
+            $this->userCache[$id] = $user->id;
+        }
+
+        return $this->userCache[$id];
+    }
+
+    /**
+     * Return the name of the User model.
+     *
+     * @return string
+     */
+    public function getUserModel()
+    {
+        return $this->userModel;
+    }
+
 }
