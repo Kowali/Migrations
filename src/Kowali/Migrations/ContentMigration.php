@@ -70,14 +70,14 @@ class ContentMigration implements ContentMigrationContract {
      *
      * @var array
      */
-    protected $contentFields = ['tid', 'user_id', 'content_id', 'order', '_content', 'content_model', 'status', 'created_at', 'updated_at', 'deleted_at'];
+    protected $contentFields = ['tid', 'user_id', 'content_id', 'order', '_content', 'content_model', 'status', 'created_at', 'deleted_at'];
 
     /**
      * The fields used to migrate content translations.
      *
      * @var array
      */
-    protected $contentTranslationFields = ['content_id', 'locale', 'slug', 'title', 'content', 'excerpt', 'mime_type', 'created_at', 'updated_at'];
+    protected $contentTranslationFields = ['content_id', 'locale', 'slug', 'title', 'content', 'excerpt', 'mime_type', 'created_at'];
 
     /**
      * Initialize the instance.
@@ -146,6 +146,11 @@ class ContentMigration implements ContentMigrationContract {
         if($seed->parent && ! $seed->content_id)
         {
             $seed->content_id = $this->content->getByTid($seed->parent)->id;
+        }
+
+        if( ! $seed->created_at)
+        {
+            $seed->created_at = date("Y-m-d H:i:s", time());
         }
 
         $content = $this->content->updateOrCreate($seed->only($this->contentFields));

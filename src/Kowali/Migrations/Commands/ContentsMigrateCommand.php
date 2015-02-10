@@ -71,6 +71,7 @@ class ContentsMigrateCommand extends Command {
      */
     public function fire()
     {
+        \Eloquent::unguard();
         $path = $this->getPath();
 
         foreach($this->migration->getContentModels() as $type => $model)
