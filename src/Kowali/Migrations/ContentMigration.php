@@ -174,6 +174,13 @@ class ContentMigration implements ContentMigrationContract {
                 $this->addMeta($name, $details, $content);
             }
         }
+
+        $this->afterMigrated($content, $seed);
+    }
+
+    public function afterMigrated($content, $seede)
+    {
+
     }
 
     public function migrateTranslation($seed, $content)
