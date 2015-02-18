@@ -10,8 +10,8 @@
     ],
     "require": {
         "php": ">=5.4.0",
-        "illuminate/support": "4.2.*",
-        "hpkns/front-matter": "1.0.4"
+        "illuminate/support": "~5.0",
+        "hpkns/front-matter": "2.0.*"
     },
     "autoload": {
         "psr-4": {
